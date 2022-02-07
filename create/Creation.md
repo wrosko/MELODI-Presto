@@ -3,8 +3,8 @@
 1. [Get SemMedDB Data](#get-semmeddb-data)
 2. [Convert to delimited](#convert-to-delimited) 
 3. [Create config.py](#create-config-file) 
-4. [Create frequency counts](#create-frequency-counts)
-5. [Index the data](#index-the-data)
+4. [Index the data](#index-the-data)
+5. [Create frequency counts](#create-frequency-counts)
 6. [Create App and API](#create-app-and-api)
 
 
@@ -35,9 +35,9 @@ docker-compose up -d
 
 To create docker instance
 
-```
-docker pull docker.elastic.co/elasticsearch/elasticsearch:7.17.0
-docker run -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+``` shell
+docker pull docker.elastic.co/elasticsearch/elasticsearch:6.8.23
+docker run -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -d -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:6.8.23
 ```
 
 - the above is for a single node cluster, ideally in production use a full cluster.
@@ -46,7 +46,7 @@ docker run -p 127.0.0.1:9200:9200 -p 127.0.0.1:9300:9300 -e "discovery.type=sing
 
 Create `django_project/config.py` and modify
 
-```
+``` python
 secret_key = '' # django secret key
 
 #elastic host 
@@ -76,8 +76,7 @@ allowed_hosts = "" # set IP addresses for access
 
 semmed_triple_total = '' # total number of triples in predicate index
 ```
-
-- create secret key `python -c "import secrets; print(secrets.token_urlsafe())"`
+- For `secret_key` you can run this to create a secret key `python -c "import secrets; print(secrets.token_urlsafe())"`
 
 
 ### Index the data
@@ -113,7 +112,7 @@ semmed_triple_total = '' # total number of triples in predicate index
 
 ### Increase result window and terms count size
 
-```
+``` shell
 curl -XPUT 'localhost:9200/semmeddb-v42/_settings' -H 'Content-Type: application/json' -d '{"index.max_result_window" : "1000000"}'
 curl -XPUT 'localhost:9200/semmeddb-v42_triple_freqs/_settings' -H 'Content-Type: application/json' -d '{"index.max_result_window" : "1000000"}'
 curl -XPUT 'localhost:9200/semmeddb-v42/_settings' -H 'Content-Type: application/json' -d '{"index.max_terms_count" : "100000"}'
@@ -123,7 +122,7 @@ curl -XPUT '192.168.0.18:9200/semmeddb-v42_triple_freqs/_settings' -H 'Content-T
 
 # Testing
 
-```
+``` shell
 #all
 docker exec melodi-presto-django python django_project/manage.py test django_project
 
