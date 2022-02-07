@@ -39,16 +39,16 @@ if not os.path.exists(outDir):
     os.makedirs(outDir)
 
 
-def create_counts(type):
-    print("Creating counts for ", type)
-    if type == "semmeddb_triple":
+def create_counts(semmed_type):
+    print("Creating counts for ", semmed_type)
+    if semmed_type == "semmeddb_triple":
         source = "SUB_PRED_OBJ"
-    elif type == "semmeddb_subject":
+    elif semmed_type == "semmeddb_subject":
         source = "SUBJECT_NAME"
-    elif type == "semmeddb_object":
+    elif semmed_type == "semmeddb_object":
         source = "OBJECT_NAME"
     else:
-        print("unkown type!")
+        print("unkown semmed_type!")
         exit()
 
     # get initial aggreation
@@ -58,7 +58,7 @@ def create_counts(type):
             "my_buckets": {
                 "composite": {
                     "size": batch_size,
-                    "sources": [{type: {"terms": {"field": source}}}],
+                    "sources": [{semmed_type: {"terms": {"field": source}}}],
                 }
             }
         }
@@ -69,10 +69,10 @@ def create_counts(type):
     # print(res)
     masterDic = {}
     for r in res["aggregations"]["my_buckets"]["buckets"]:
-        val = r["key"][type]
+        val = r["key"][semmed_type]
         count = r["doc_count"]
         masterDic[val] = count
-    last_entry = res["aggregations"]["my_buckets"]["buckets"][-1]["key"][type]
+    last_entry = res["aggregations"]["my_buckets"]["buckets"][-1]["key"][semmed_type]
     # print('last - ',last_entry)
 
     pageCount = 0
@@ -84,8 +84,8 @@ def create_counts(type):
                 "my_buckets": {
                     "composite": {
                         "size": batch_size,
-                        "sources": [{type: {"terms": {"field": source}}}],
-                        "after": {type: last_entry},
+                        "sources": [{semmed_type: {"terms": {"field": source}}}],
+                        "after": {semmed_type: last_entry},
                     }
                 }
             }
@@ -94,14 +94,14 @@ def create_counts(type):
         res = r.json()
         for r in res["aggregations"]["my_buckets"]["buckets"]:
             # print(r['key'])
-            val = r["key"][type]
+            val = r["key"][semmed_type]
             count = r["doc_count"]
             if val in masterDic:
                 print(val, "already exists")
                 break
             masterDic[val] = count
         if len(res["aggregations"]["my_buckets"]["buckets"]) > 1:
-            last_entry = res["aggregations"]["my_buckets"]["buckets"][-1]["key"][type]
+            last_entry = res["aggregations"]["my_buckets"]["buckets"][-1]["key"][semmed_type]
             # print('last - ',last_entry)
             pageCount += 1
         else:
@@ -110,7 +110,7 @@ def create_counts(type):
 
     print(len(masterDic))
     print("Writing to file...")
-    o = gzip.open(outDir + "/" + type + "_freqs.txt.gz", "w")
+    o = gzip.open(outDir + "/" + semmed_type + "_freqs.txt.gz", "w")
     for m in masterDic:
         t = m + "\t" + str(masterDic[m]) + "\n"
         o.write(t.encode("utf-8"))

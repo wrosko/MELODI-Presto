@@ -80,10 +80,6 @@ semmed_triple_total = '' # total number of triples in predicate index
 - create secret key `python -c "import secrets; print(secrets.token_urlsafe())"`
 
 
-### Create frequency counts
-
-`python -m create.create_semmed_freqs`
-
 ### Index the data
 
 ##### PREDICATION data
@@ -109,6 +105,11 @@ semmed_triple_total = '' # total number of triples in predicate index
 - takes ~x hours
 
 `python -m create.index_semmeddb_citations`
+
+### Create frequency counts
+
+`python -m create.create_semmed_freqs`
+
 
 ### Increase result window and terms count size
 
