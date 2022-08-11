@@ -95,8 +95,8 @@ def index_sentence_data(sentence_data, index_name):
 
     logger.info(f"Reading {sentence_data}")
 #    df = pd.read_csv(sentence_data, escapechar="\\", dtype='object')#low_memory=False)
-    df = vaex.open(sentence_data)
-#     df = vaex.from_csv(sentence_data, escapechar="\\", convert=True, dtype='object',chunk_size=1_000_000)#low_memory=False)
+#     df = vaex.open(sentence_data)
+    df = vaex.from_csv(sentence_data, escapechar="\\", convert=True, dtype='object',chunk_size=1_000_000)#low_memory=False)
 #     df = vaex.from_csv(sentence_data, escapechar="\\", convert=True, dtype='object',chunk_size=1_000_000)#low_memory=False)
     
     
@@ -111,50 +111,33 @@ def index_sentence_data(sentence_data, index_name):
         "SECTION_HEADER",
         "NORMALIZED_SECTION_HEADER",
     ]
-    df.columns = col_names
+    
+    headers = ["SENTENCE_ID","PMID","TYPE","NUMBER","SENT_START_INDEX","SENTENCE","SENT_END_INDEX"]
+#     df.columns = col_names
 #    df.drop(columns=["SECTION_HEADER", "NORMALIZED_SECTION_HEADER"], inplace=True)
     # df.dropna(inplace=True)
 #    df.fillna("NA", inplace=True)
+#     df['PMIDvirt'] = df.PMID
     logger.info(f"\n{df.head()}")
     logger.info(df.shape)
-    
+
 #     df = df[10800000:]
-    for i, row in df.iterrows():
-        # next(f)
-        counter += 1
-        if counter % 100000 == 0:
-            end = time.time()
-            t = round((end - start), 4)
-            print(len(bulk_data), get_date(), sentence_data, t, counter)
-        if counter % chunkSize == 0:
-            deque(
-                helpers.streaming_bulk(
-                    client=es,
-                    actions=bulk_data,
-                    chunk_size=chunkSize,
-                    request_timeout=timeout,
-                    raise_on_error=True,
-                ),
-                maxlen=0,
-            )
-            bulk_data = []
-        if str(row["PMID"]) in pmids:
-            # logger.info(row)
-            data_dict = {
-                "SENTENCE_ID": row["SENTENCE_ID"],
-                "PMID": row["PMID"],
-                "TYPE": row["TYPE"],
-                "NUMBER": row["NUMBER"],
-                "SENT_START_INDEX": int(row["SENT_START_INDEX"]),
-                "SENTENCE": row["SENTENCE"],
-                "SENT_END_INDEX": int(row["SENT_END_INDEX"]),
-                # "SECTION_HEADER": row['SECTION_HEADER'],
-                # "NORMALIZED_SECTION_HEADER": l[8],
-            }
+
+    pmid_list = list(pmids)
+    df = df[df.PMID.isin(pmid_list)]
+    df = df[headers]
+    logger.info(df.shape)
+    dfshape = df.shape[0]
+    
+    recs = df.to_records(chunk_size = chunkSize)
+    
+    for record in recs:
+        bulk_data = []
+        for data_dict in record[2]:
+            data_dict["SENT_START_INDEX"] = int(data_dict["SENT_START_INDEX"])
+            data_dict["SENT_END_INDEX"] = int(data_dict["SENT_END_INDEX"])
             op_dict = {
                 "_index": index_name,
-                # "_id": l[0],
-                # "_op_type": "create",
                 "_type": "_doc",
                 "_source": data_dict,
             }
@@ -165,7 +148,21 @@ def index_sentence_data(sentence_data, index_name):
                     nan_check = False
             if nan_check == True:
                 bulk_data.append(op_dict)
-    # print len(bulk_data)
+        
+        deque(
+                helpers.streaming_bulk(
+                    client=es,
+                    actions=bulk_data,
+                    chunk_size=chunkSize,
+                    request_timeout=timeout,
+                    raise_on_error=True,
+                ),
+                maxlen=0,
+            )
+        end = time.time()
+        t = round((end - start), 4)
+        print(len(bulk_data), get_date(), sentence_data, t, record[1], dfshape, "Completed: {:.0%}".format(record[1]/dfshape))
+
     deque(
         helpers.streaming_bulk(
             client=es,

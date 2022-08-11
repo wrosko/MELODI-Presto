@@ -102,7 +102,10 @@ def index_predicate_data(predicate_data, concept_data, index_name):
     pmids = []
 
     print('Reading',predicate_data)
-    df = pd.read_csv(predicate_data, encoding="ISO-8859-1",dtype='object')#low_memory=False)
+#     df = pd.read_csv(predicate_data, encoding="ISO-8859-1",dtype='object')#low_memory=False)
+    import vaex
+    df = vaex.from_csv(predicate_data, encoding="ISO-8859-1", convert=True, dtype='object',chunk_size=1_000_000)#low_memory=False)
+#     df = vaex.open(predicate_data+'.hdf5')
     col_names = [
         "PREDICATION_ID",
         "SENTENCE_ID",
@@ -120,7 +123,7 @@ def index_predicate_data(predicate_data, concept_data, index_name):
         "y",
         "z",
     ]
-    df.columns = col_names
+#     df.columns = col_names
     logger.info(f"\n{df.head()}")
     logger.info(df.shape)
 
@@ -141,18 +144,32 @@ def index_predicate_data(predicate_data, concept_data, index_name):
     df = df[~(df["SUBJECT_CUI"].isin(gc_ids)) & ~(df["OBJECT_CUI"].isin(gc_ids))]
     logger.info(f"\n{df.head()}")
     logger.info(df.shape)
-
+    column_names = ["PREDICATION_ID","SENTENCE_ID","PMID","PREDICATE","SUBJECT_CUI","SUBJECT_NAME","SUBJECT_SEMTYPE","OBJECT_CUI","OBJECT_NAME","OBJECT_SEMTYPE"]
+    df = df[column_names]
+    dfshape = df.shape[0]
     # remove last three cols
     #df.drop(columns=["x", "y", "z"], inplace=True)
+    recs = df.to_records(chunk_size = chunkSize)
+    
+    for record in recs:
+        bulk_data= []
+        for data_dict in record[2]:
+        # ignore records with specified types
+            pred_id = (data_dict["SUBJECT_NAME"] + ":" + data_dict["PREDICATE"] + ":" + data_dict["OBJECT_NAME"])
 
-    for i, row in df.iterrows():
-        counter += 1
-        if counter % 100000 == 0:
-            end = time.time()
-            t = round((end - start), 4)
-            print(get_date(), predicate_data, t, counter)
-        if counter % chunkSize == 0:
-            deque(
+            pmids.append(data_dict["PMID"])
+        # print(l)
+        op_dict = {
+            "_index": index_name,
+            "_id": data_dict["PREDICATION_ID"],
+            "_op_type": "create",
+            "_type": "_doc",
+            "_source": data_dict,
+            "retry_on_conflict":20
+        }
+        bulk_data.append(op_dict)
+
+        deque(
                 helpers.streaming_bulk(
                     client=es,
                     actions=bulk_data,
@@ -162,37 +179,10 @@ def index_predicate_data(predicate_data, concept_data, index_name):
                 ),
                 maxlen=0,
             )
-            bulk_data = []
+        end = time.time()
+        t = round((end - start), 4)
+        print(len(bulk_data), get_date(), predicate_data, t, record[1], dfshape, "Completed: {:.0%}".format(record[1]/dfshape))
 
-        # ignore records with specified types
-        pred_id = (
-            row["SUBJECT_NAME"] + ":" + row["PREDICATE"] + ":" + row["OBJECT_NAME"]
-        )
-        pmids.append(row["PMID"])
-        # print(l)
-        data_dict = {
-            "PREDICATION_ID": row["PREDICATION_ID"],
-            "SENTENCE_ID": row["SENTENCE_ID"],
-            "PMID": row["PMID"],
-            "PREDICATE": row["PREDICATE"],
-            "SUBJECT_CUI": row["SUBJECT_CUI"],
-            "SUBJECT_NAME": row["SUBJECT_NAME"],
-            "SUBJECT_SEMTYPE": row["SUBJECT_SEMTYPE"],
-            "OBJECT_CUI": row["OBJECT_CUI"],
-            "OBJECT_NAME": row["OBJECT_NAME"],
-            "OBJECT_SEMTYPE": row["OBJECT_SEMTYPE"],
-            "SUB_PRED_OBJ": pred_id,
-        }
-        op_dict = {
-            "_index": index_name,
-            "_id": row["PREDICATION_ID"],
-            "_op_type": "create",
-            "_type": "_doc",
-            "_source": data_dict,
-        }
-        bulk_data.append(op_dict)
-    # print bulk_data[0]
-    # print len(bulk_data)
     deque(
         helpers.streaming_bulk(
             client=es,

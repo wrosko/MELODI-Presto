@@ -10,7 +10,7 @@ EXPOSE 8000
 
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
-
+#RUN apt install sqlite3
 # CMD specifcies the command to execute to start the server running.
 CMD ["/start.sh"]
 # done!
