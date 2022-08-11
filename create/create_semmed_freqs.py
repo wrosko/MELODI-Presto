@@ -10,7 +10,7 @@ import requests
 import os
 
 # could be over 17 million of these
-batch_size = 100000
+batch_size = 10000
 index_name = config.semmed_predicate_index
 
 url = (

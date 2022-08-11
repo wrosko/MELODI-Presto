@@ -109,7 +109,6 @@ semmed_triple_total = '' # total number of triples in predicate index
 
 `python -m create.create_semmed_freqs`
 
-
 ### Increase result window and terms count size
 
 ``` shell
@@ -119,6 +118,10 @@ curl -XPUT 'localhost:9200/semmeddb-v42/_settings' -H 'Content-Type: application
 curl -XPUT '192.168.0.18:9200/semmeddb-v42_triple_freqs/_settings' -H 'Content-Type: application/json' -d '{"index.max_terms_count" : "100000"}'
 
 ```
+
+python -m create.index_semmeddb_sentences
+python -m create.index_semmeddb_freqs
+python -m create.index_semmeddb_citations
 
 # Testing
 
